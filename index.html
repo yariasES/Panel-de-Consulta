@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Infraestructura Eléctrica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 1. FAB IE (Botón nativo, ya enfocable) -->
+  <button class="fab-ie" id="fab-ie" aria-label="Infraestructura Eléctrica" aria-expanded="false" aria-controls="panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+    </svg>
+    <div class="fab-tooltip" role="tooltip" aria-hidden="true">Infraestructura Eléctrica</div>
+  </button>
+
+  <!-- 2. Perfil de Usuario (Div personalizado enfocable) -->
+  <div class="user-profile" id="user-profile" tabindex="0" role="button" aria-label="Abrir menú de perfil de Mario Guzmán" aria-haspopup="menu">
+    <div class="user-avatar" aria-hidden="true"></div>
+    <span class="user-name">Mario Guzmán</span>
+    <div class="user-divider" aria-hidden="true"></div>
+    <div class="user-chevron">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 3. Switch de Tema (Checkbox con rol switch) -->
+  <div class="theme-switch-wrapper">
+    <label class="theme-switch">
+      <input type="checkbox" id="theme-toggle" role="switch" aria-label="Cambiar entre modo claro y oscuro">
+      <span class="slider" aria-hidden="true"></span>
+    </label>
+  </div>
+
+  <!-- 4. Menú de Capas -->
+  <div class="layer-group" id="layerGroup">
+    <div class="layer-panel-container" id="layerPanelContainer" role="region" aria-label="Panel de capas expandido" tabindex="-1">
+      <div class="layer-liquid-glass" id="gridCapas" aria-label="Lista de capas disponibles">
+        <!-- Tarjetas generadas por JS -->
+      </div>
+    </div>
+    <div class="layer-collapsed-frame" id="collapsedLayer" role="button" tabindex="0" aria-label="Abrir menú de capas" aria-expanded="false" aria-controls="layerPanelContainer">
+      <img src="Layer-principal-container.png" alt="Capas Base" class="bg-image" aria-hidden="true" />
+      <span class="overlay-text">Capas Base</span>
+    </div>
+  </div>
+
+  <!-- 5. PANEL PRINCIPAL (Infraestructura) -->
+  <div class="liquid-glass" id="panel" role="region" aria-label="Panel de Infraestructura Eléctrica" tabindex="-1">
+    <div class="panel-header">
+      <div class="drag-handle" id="drag-handle" tabindex="0" role="button" aria-label="Arrastrar panel" aria-grabbed="false">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="18" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <h2 class="panel-title" id="panel-title">Infraestructura Eléctrica</h2>
+      <button class="close-btn" id="close-panel-btn" aria-label="Cerrar panel">✕</button>
+    </div>
+    <div class="grid-container" id="gridApoyos" aria-labelledby="panel-title">
+      <!-- Tarjetas generadas por JS -->
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
