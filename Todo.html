@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Infraestructura Eléctrica · Mapa a Pantalla Completa</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* =========================================================
+       VARIABLES GLOBALES (LIGHT / DARK)
+       ========================================================= */
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.3);
+      --glass-inset-light: rgba(255, 255, 255, 0.8);
+      --glass-inset-dark: rgba(0, 0, 0, 0.08);
+      --glass-border-gradient: linear-gradient(258.9deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, 0.3) 97.6%);
+      --card-bg: linear-gradient(145deg, rgba(255,255,255,0.8), rgba(255,255,255,0.5));
+      --card-text: #000000;
+      --card-shadow-dark: rgba(0, 0, 0, 0.1);
+      --card-shadow-light: rgba(255, 255, 255, 0.9);
+      --panel-text: #333333;
+      --drag-icon-color: #888888;
+      --close-bg-hover: rgba(0, 0, 0, 0.05);
+      --fab-bg: #ffffff;
+      --fab-icon: #007bff;
+      --fab-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      --profile-hover-bg: rgba(0, 0, 0, 0.05);
+      --profile-bg: #ffffff;
+      --profile-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      --divider-color: #004A9D;
+      --chevron-color: #004A9D;
+      --focus-ring: #4a8fc0;
+      --badge-bg: rgba(255, 255, 255, 0.8); /* ya no se usa, pero se mantiene */
+    }
+
+    body.dark-mode {
+      --glass-bg: rgba(30, 32, 40, 0.4);
+      --glass-inset-light: rgba(255, 255, 255, 0.1);
+      --glass-inset-dark: rgba(0, 0, 0, 0.6);
+      --glass-border-gradient: linear-gradient(258.9deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0.1) 97.6%);
+      --card-bg: linear-gradient(145deg, rgba(50,54,70,0.8), rgba(50,54,70,0.5));
+      --card-text: #ffffff;
+      --card-shadow-dark: rgba(0, 0, 0, 0.5);
+      --card-shadow-light: rgba(255, 255, 255, 0.05);
+      --panel-text: #ffffff;
+      --drag-icon-color: #cccccc;
+      --close-bg-hover: rgba(255, 255, 255, 0.1);
+      --fab-bg: #2a2d3a;
+      --fab-icon: #4da3ff;
+      --fab-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      --profile-bg: #2a2d3a;
+      --profile-hover-bg: rgba(255, 255, 255, 0.1);
+      --divider-color: #4da3ff;
+      --chevron-color: #4da3ff;
+      --badge-bg: rgba(50, 54, 70, 0.8);
+    }
+
+    /* =========================================================
+       RESET Y BASE
+       ========================================================= */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+      transition: background 0.4s ease;
+      background-color: #e8edf5; 
+    }
+
+    :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 4px; }
+    :focus:not(:focus-visible) { outline: none; }
+
+    /* =========================================================
+       MAPA LEAFLET (Ocupa toda la pantalla, anclado a los bordes)
+       ========================================================= */
+    #map {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    body.dark-mode #map {
+      filter: brightness(0.6) contrast(1.1) saturate(0.8);
+    }
+
+    .leaflet-control-zoom {
+      display: none !important;
+    }
+
+    /* =========================================================
+       NUEVOS CONTROLES DE MAPA (+ / - / Centrar)
+       ========================================================= */
+    .map-controls {
+      position: fixed;
+      bottom: 180px;
+      right: 20px;
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 14px;
+      padding: 8px;
+      box-shadow: 
+        inset 0 2px 4px var(--glass-inset-light),
+        inset 0 -2px 4px var(--glass-inset-dark),
+        0 8px 20px rgba(0,0,0,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    body.dark-mode .map-controls {
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .map-controls button {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 10px;
+      background: var(--card-bg);
+      color: var(--panel-text);
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 3px 3px 6px var(--card-shadow-dark), -3px -3px 6px var(--card-shadow-light);
+    }
+
+    .map-controls button:hover {
+      border: 2px solid #0892F4;
+      transform: scale(1.05);
+    }
+
+    .map-controls button:active {
+      box-shadow: inset 2px 2px 4px var(--card-shadow-dark), inset -2px -2px 4px var(--card-shadow-light);
+      transform: scale(0.95);
+    }
+
+    /* =========================================================
+       COMPONENTE FAB IE
+       ========================================================= */
+    .fab-ie {
+      position: fixed; top: 20px; right: 225px; z-index: 200;
+      width: 48px; height: 48px; border-radius: 14px; border: none;
+      background-color: var(--fab-bg); box-shadow: var(--fab-shadow);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .fab-ie svg { width: 24px; height: 24px; color: var(--fab-icon); }
+    .fab-ie:hover { background-color: #004A9D; }
+    .fab-ie:hover svg { color: #ffffff; }
+    .fab-ie:hover .fab-tooltip { opacity: 1; visibility: visible; }
+    .fab-ie.selected { background-color: #004A9D; }
+    .fab-ie.selected svg { color: #ffffff; }
+
+    .fab-tooltip {
+      position: absolute; top: 55px; left: 50%; transform: translateX(-50%);
+      background-color: #004A9D; color: white; padding: 6px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+      opacity: 0; visibility: hidden; pointer-events: none; transition: all 0.3s ease;
+    }
+    .fab-tooltip::after {
+      content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+      border-width: 0 6px 6px 6px; border-style: solid;
+      border-color: transparent transparent #004A9D transparent;
+    }
+
+    /* =========================================================
+       PERFIL DE USUARIO
+       ========================================================= */
+    .user-profile {
+      position: fixed; top: 20px; right: 20px; z-index: 200;
+      display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px;
+      border-radius: 30px; background-color: var(--profile-bg); box-shadow: var(--profile-shadow);
+      cursor: pointer; transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .user-profile:hover { background-color: var(--profile-hover-bg); transform: translateY(-2px); }
+    .user-avatar { width: 36px; height: 36px; border-radius: 50%; background-color: #ff6b6b; background-image: url('https://cdn-icons-png.flaticon.com/512/4140/4140048.png'); background-size: cover; background-position: center; }
+    .user-name { font-size: 14px; font-weight: 500; color: var(--panel-text); }
+    .user-divider { width: 1px; height: 16px; background-color: var(--divider-color); }
+    .user-chevron svg { width: 14px; height: 14px; color: var(--chevron-color); }
+
+    /* =========================================================
+       SWITCH DE TEMA (Inferior Central)
+       ========================================================= */
+    .theme-switch-wrapper {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      padding: 10px;
+      border-radius: 30px;
+      background-color: var(--profile-bg);
+      box-shadow: var(--profile-shadow);
+    }
+    .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+    .theme-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    input:checked + .slider { background-color: #004A9D; }
+    input:checked + .slider:before { transform: translateX(24px); }
+
+    /* =========================================================
+       PANEL PRINCIPAL (Liquid Glass)
+       ========================================================= */
+    .liquid-glass {
+      position: fixed; z-index: 100; border-radius: 30px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: inset 0 2px 4px var(--glass-inset-light),
+                  inset 0 -2px 4px var(--glass-inset-dark),
+                  0 20px 40px rgba(0, 0, 0, 0.2);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  background 0.4s ease;
+      cursor: pointer;
+      padding: 20px 30px 30px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+    .liquid-glass.visible { display: flex; }
+    .liquid-glass.dragging {
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+      cursor: grabbing;
+      transition: none;
+    }
+    .liquid-glass::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 30px;
+      padding: 1px;
+      background: var(--glass-border-gradient);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    .panel-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--panel-text); }
+    .drag-handle { cursor: grab; display: flex; align-items: center; color: var(--drag-icon-color); margin-right: 10px; touch-action: none; }
+    .panel-title { flex-grow: 1; font-size: 16px; font-weight: 700; text-align: left; }
+    .close-btn { background: transparent; border: none; color: var(--panel-text); font-size: 18px; line-height: 1; cursor: pointer; width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: background 0.2s ease; }
+    .close-btn:hover { background: var(--close-bg-hover); }
+
+    .grid-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; justify-items: center; }
+
+    .card {
+      background: var(--card-bg); border-radius: 12px; border: 2px solid transparent; padding: 6px;
+      box-shadow: 4px 4px 8px var(--card-shadow-dark), -4px -4px 8px var(--card-shadow-light), var(--card-glow-normal);
+      width: 75px; height: 98px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.3s ease, background 0.4s ease;
+    }
+    .card-image { width: 100%; height: 60%; display: flex; justify-content: center; align-items: flex-end; margin-bottom: 2px; }
+    .card-image svg { width: 40px; height: auto; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1)); }
+    .card-label { font-size: 14px; font-weight: 500; color: var(--card-text); text-align: center; line-height: 1; transition: color 0.3s ease; }
+    .card:hover { border-color: #0892F4; box-shadow: 6px 6px 12px var(--card-shadow-dark), -6px -6px 12px var(--card-shadow-light), var(--card-glow-hover); }
+    .card.selected { border-color: #004A9D; box-shadow: inset 2px 2px 4px var(--card-shadow-dark), inset -2px -2px 4px var(--card-shadow-light), var(--card-glow-selected); }
+
+    /* =========================================================
+       MENÚ DE CAPAS (Independiente) – Mismo estilo glass
+       ========================================================= */
+    .layer-group { position: fixed; bottom: 20px; right: 20px; z-index: 150; display: flex; align-items: center; gap: 24px; }
+    .layer-panel-container { transition: opacity 0.3s ease, transform 0.3s ease; opacity: 0; transform: scale(0.95); pointer-events: none; }
+    .layer-panel-container.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+
+    .layer-liquid-glass {
+      position: relative;
+      width: 400px;
+      height: 144px;
+      border-radius: 30px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: inset 0 2px 4px var(--glass-inset-light),
+                  inset 0 -2px 4px var(--glass-inset-dark),
+                  0 20px 40px rgba(0, 0, 0, 0.2);
+      transition: background 0.4s ease;
+      cursor: default;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      justify-items: center;
+      align-items: center;
+    }
+    .layer-liquid-glass::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 30px;
+      padding: 1px;
+      background: var(--glass-border-gradient);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .layer-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 2px solid transparent;
+      padding: 8px;
+      box-shadow: 4px 4px 8px var(--card-shadow-dark), -4px -4px 8px var(--card-shadow-light);
+      width: 80px;
+      height: 96px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.4s ease;
+    }
+    .layer-card-image {
+      width: 100%;
+      height: 60%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 4px;
+    }
+    .layer-card-image img { width: 48px; height: 48px; object-fit: contain; display: block; }
+    .layer-card-label { font-size: 12px; font-weight: 500; color: var(--card-text); text-align: center; line-height: 1.2; transition: color 0.3s ease; }
+    .layer-card:hover { border: 2px solid #0892F4; box-shadow: 6px 6px 12px var(--card-shadow-dark), -6px -6px 12px var(--card-shadow-light); }
+    .layer-card.selected { border: 2px solid #004A9D; box-shadow: inset 2px 2px 4px var(--card-shadow-dark), inset -2px -2px 4px var(--card-shadow-light); }
+
+    .layer-collapsed-frame {
+      position: relative;
+      width: 144px;
+      height: 144px;
+      border-radius: 30px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: inset 0 2px 4px var(--glass-inset-light),
+                  inset 0 -2px 4px var(--glass-inset-dark),
+                  0 20px 40px rgba(0, 0, 0, 0.2);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.4s ease;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+    }
+    .layer-collapsed-frame::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 30px;
+      padding: 1px;
+      background: var(--glass-border-gradient);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .layer-collapsed-frame .bg-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .layer-collapsed-frame .overlay-text {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      text-align: center;
+      padding: 0 8px 16px 8px;
+      font-size: 18px;
+      font-weight: 500;
+      color: #ffffff;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 4px rgba(0, 0, 0, 0.5);
+      background: transparent;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+      transition: color 0.3s ease;
+    }
+    .layer-collapsed-frame:hover { border: 2px solid #0892F4; box-shadow: 6px 6px 12px var(--card-shadow-dark), -6px -6px 12px var(--card-shadow-light); }
+    .layer-collapsed-frame.selected { border: 2px solid #004A9D; box-shadow: inset 2px 2px 4px var(--card-shadow-dark), inset -2px -2px 4px var(--card-shadow-light); }
+
+    /* =========================================================
+       PANEL DE DIMENSIONAMIENTO (Inferior Izquierda) – Mismo estilo glass
+       ========================================================= */
+    .dimension-wrapper {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 500;
+      cursor: grab;
+      touch-action: none;
+      transition: bottom 0.3s ease, left 0.3s ease;
+    }
+    .dimension-wrapper:active { cursor: grabbing; }
+    .dimension-wrapper .inner {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+    }
+
+    .dimension-badge,
+    .dimension-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      transform-origin: bottom left;
+    }
+
+    /* BADGE – ahora con el mismo glass que los paneles */
+    .dimension-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      border-radius: 40px;
+      background: var(--glass-bg);  /* ← usa la misma variable que los paneles */
+      backdrop-filter: blur(18px);  /* ← mismo desenfoque */
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: inset 0 2px 4px var(--glass-inset-light),
+                  inset 0 -2px 4px var(--glass-inset-dark),
+                  0 20px 40px rgba(0, 0, 0, 0.2); /* misma sombra exterior */
+      border: 2px solid transparent;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--panel-text);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.4s;
+      white-space: nowrap;
+      z-index: 2;
+      position: relative; /* para que el pseudo-elemento se posicione respecto a él */
+    }
+    .dimension-badge::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 40px; /* mismo radio que el badge */
+      padding: 1px;
+      background: var(--glass-border-gradient);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+    .dimension-badge:hover {
+      border-color: #0892F4;
+      box-shadow: 6px 6px 16px var(--card-shadow-dark), -6px -6px 16px var(--card-shadow-light);
+    }
+    .dimension-badge.hidden { display: none; }
+
+    .dimension-panel {
+      width: 400px;
+      border-radius: 30px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: inset 0 2px 4px var(--glass-inset-light),
+                  inset 0 -2px 4px var(--glass-inset-dark),
+                  0 20px 40px rgba(0, 0, 0, 0.2);
+      padding: 20px 30px 30px;
+      transition: max-height 0.4s ease, opacity 0.4s ease, box-shadow 0.3s ease;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+    .dimension-panel::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 30px;
+      padding: 1px;
+      background: var(--glass-border-gradient);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .dimension-panel.visible {
+      max-height: 800px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .dimension-panel .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      color: var(--panel-text);
+    }
+    .dimension-panel .drag-icon {
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 2px;
+      border-radius: 4px;
+      transition: background 0.2s;
+      color: var(--drag-icon-color);
+    }
+    .dimension-panel .drag-icon:hover { background: rgba(128, 128, 128, 0.15); }
+    .dimension-panel .drag-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+      opacity: 0.6;
+    }
+    .dimension-panel .title-group { flex: 1; }
+    .dimension-panel .title-group h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--panel-text);
+    }
+    .dimension-panel .title-group .subtitle {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-top: 2px;
+      color: var(--panel-text);
+    }
+    .dimension-panel .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--panel-text);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease;
+    }
+    .dimension-panel .close-btn:hover { background: var(--close-bg-hover); }
+
+    .dimension-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 24px;
+    }
+    .dimension-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+      color: var(--panel-text);
+      font-size: 14px;
+    }
+    .dimension-item .label { opacity: 0.8; }
+    .dimension-item .value { font-weight: 500; }
+    .dimension-item:last-child { border-bottom: none; }
+
+    /* =========================================================
+       AJUSTES RESPONSIVE
+       ========================================================= */
+    @media (max-width: 1920px) { body { zoom: 1; } }
+    @media (max-width: 1600px) { body { zoom: 0.85; } }
+    @media (max-width: 1366px) { body { zoom: 0.75; } }
+    @media (max-width: 1024px) { body { zoom: 0.6; } }
+  </style>
+</head>
+<body>
+
+  <!-- 0. MAPA INTERACTIVO (Leaflet) -->
+  <div id="map" aria-label="Mapa interactivo de OpenStreetMap"></div>
+
+  <!-- 1. CONTROLES PERSONALIZADOS DEL MAPA -->
+  <div class="map-controls" role="group" aria-label="Controles de navegación del mapa">
+    <button id="btn-zoom-in" aria-label="Acercar mapa">+</button>
+    <button id="btn-zoom-out" aria-label="Alejar mapa">−</button>
+    <button id="btn-center-map" aria-label="Centrar mapa" style="font-size: 16px;">⌖</button>
+  </div>
+
+  <!-- 2. FAB IE -->
+  <button class="fab-ie" id="fab-ie" aria-label="Infraestructura Eléctrica" aria-expanded="false" aria-controls="panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+    </svg>
+    <div class="fab-tooltip" role="tooltip" aria-hidden="true">Infraestructura Eléctrica</div>
+  </button>
+
+  <!-- 3. Perfil de Usuario -->
+  <div class="user-profile" id="user-profile" tabindex="0" role="button" aria-label="Abrir menú de perfil de Mario Guzmán" aria-haspopup="menu">
+    <div class="user-avatar" aria-hidden="true"></div>
+    <span class="user-name">Mario Guzmán</span>
+    <div class="user-divider" aria-hidden="true"></div>
+    <div class="user-chevron">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 4. Switch de Tema (Inferior Central) -->
+  <div class="theme-switch-wrapper">
+    <label class="theme-switch">
+      <input type="checkbox" id="theme-toggle" role="switch" aria-label="Cambiar entre modo claro y oscuro">
+      <span class="slider" aria-hidden="true"></span>
+    </label>
+  </div>
+
+  <!-- 5. Menú de Capas -->
+  <div class="layer-group" id="layerGroup">
+    <div class="layer-panel-container" id="layerPanelContainer" role="region" aria-label="Panel de capas expandido" tabindex="-1">
+      <div class="layer-liquid-glass" id="gridCapas" aria-label="Lista de capas disponibles">
+        <!-- Tarjetas generadas por JS -->
+      </div>
+    </div>
+    <div class="layer-collapsed-frame" id="collapsedLayer" role="button" tabindex="0" aria-label="Abrir menú de capas" aria-expanded="false" aria-controls="layerPanelContainer">
+      <img src="Layer-principal-container.png" alt="Capas Base" class="bg-image" aria-hidden="true" />
+      <span class="overlay-text">Capas Base</span>
+    </div>
+  </div>
+
+  <!-- 6. PANEL PRINCIPAL (Infraestructura) -->
+  <div class="liquid-glass" id="panel" role="region" aria-label="Panel de Infraestructura Eléctrica" tabindex="-1">
+    <div class="panel-header">
+      <div class="drag-handle" id="drag-handle" tabindex="0" role="button" aria-label="Arrastrar panel" aria-grabbed="false">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="18" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <h2 class="panel-title" id="panel-title">Infraestructura Eléctrica</h2>
+      <button class="close-btn" id="close-panel-btn" aria-label="Cerrar panel">✕</button>
+    </div>
+    <div class="grid-container" id="gridApoyos" aria-labelledby="panel-title">
+      <!-- Tarjetas generadas por JS -->
+    </div>
+  </div>
+
+  <!-- 7. PANEL DE DIMENSIONAMIENTO (Inferior Izquierda) -->
+  <div class="dimension-wrapper" id="dimension-wrapper">
+    <div class="inner">
+      <div class="dimension-badge" id="dimension-badge">Dimensionamiento</div>
+      <div class="dimension-panel" id="dimension-panel">
+        <div class="header">
+          <div class="drag-icon" id="dimension-drag-handle">
+            <svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
+          </div>
+          <div class="title-group">
+            <h2>Dimensionamiento</h2>
+            <div class="subtitle">Barrio 1</div>
+          </div>
+          <button class="close-btn" id="dimension-close-btn">✕</button>
+        </div>
+        <div class="dimension-grid" id="dimension-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================
+    // INICIALIZACIÓN DEL MAPA (Leaflet + OpenStreetMap)
+    // =========================================================
+    const map = L.map('map', {
+      center: [7.1193, -73.1250],
+      zoom: 14,
+      zoomControl: false,
+      attributionControl: true
+    });
+
+    // Capas base
+    const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri'
+    });
+
+    // Capa Positrón (estilo claro de CartoDB)
+    const positronLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; CartoDB'
+    });
+
+    // Añadir la capa OSM por defecto
+    osmLayer.addTo(map);
+
+    // =========================================================
+    // CONTROLES PERSONALIZADOS DEL MAPA
+    // =========================================================
+    document.getElementById('btn-zoom-in').addEventListener('click', () => map.zoomIn());
+    document.getElementById('btn-zoom-out').addEventListener('click', () => map.zoomOut());
+    document.getElementById('btn-center-map').addEventListener('click', () => map.setView([7.1193, -73.1250], 14));
+
+    // =========================================================
+    // SWITCH DE TEMA (Global)
+    // =========================================================
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('change', () => {
+      document.body.classList.toggle('dark-mode', themeToggle.checked);
+      setTimeout(() => map.invalidateSize(), 100);
+    });
+
+    // =========================================================
+    // PANEL DE INFRAESTRUCTURA
+    // =========================================================
+    const fabIE = document.getElementById('fab-ie');
+    const panel = document.getElementById('panel');
+
+    function togglePanel() {
+      fabIE.classList.toggle('selected');
+      if (!panel.classList.contains('visible')) {
+        panel.style.position = 'fixed';
+        panel.style.top = '84px';
+        panel.style.right = '225px';
+        panel.style.left = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.margin = '0';
+      }
+      panel.classList.toggle('visible');
+      fabIE.setAttribute('aria-expanded', panel.classList.contains('visible'));
+    }
+
+    fabIE.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePanel();
+    });
+
+    document.getElementById('close-panel-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.classList.remove('visible');
+      fabIE.classList.remove('selected');
+      fabIE.setAttribute('aria-expanded', 'false');
+    });
+
+    // =========================================================
+    // PERFIL DE USUARIO
+    // =========================================================
+    const userProfile = document.getElementById('user-profile');
+    userProfile.addEventListener('click', () => console.log("Perfil clickeado"));
+    userProfile.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); userProfile.click(); }
+    });
+
+    // =========================================================
+    // DRAG & DROP DEL PANEL PRINCIPAL
+    // =========================================================
+    const dragHandle = document.getElementById('drag-handle');
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    dragHandle.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        startX = e.clientX; startY = e.clientY;
+        const rect = panel.getBoundingClientRect();
+        initialLeft = rect.left; initialTop = rect.top;
+        panel.style.left = `${initialLeft}px`; panel.style.top = `${initialTop}px`;
+        panel.style.right = 'auto';
+        panel.classList.add('dragging');
+        dragHandle.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        panel.style.left = `${initialLeft + (e.clientX - startX)}px`;
+        panel.style.top = `${initialTop + (e.clientY - startY)}px`;
+    });
+
+    document.addEventListener('pointerup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        panel.classList.remove('dragging');
+        dragHandle.style.cursor = 'grab';
+        document.body.style.userSelect = '';
+    });
+
+    // =========================================================
+    // GENERAR TARJETAS (Apoyos)
+    // =========================================================
+    function crearTarjeta() {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-pressed', 'false');
+        card.innerHTML = `
+            <div class="card-image" aria-hidden="true">
+                <svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="45" y="40" width="10" height="110" rx="2" fill="#FFC107"/>
+                    <rect x="20" y="60" width="60" height="8" rx="2" fill="#FFC107"/>
+                    <circle cx="25" cy="58" r="6" fill="#FFC107"/>
+                    <circle cx="75" cy="58" r="6" fill="#FFC107"/>
+                    <rect x="38" y="50" width="24" height="30" rx="2" fill="#FFC107"/>
+                </svg>
+            </div>
+            <div class="card-label">Apoyos</div>
+        `;
+        const toggleSelection = () => {
+            card.classList.toggle('selected');
+            card.setAttribute('aria-pressed', card.classList.contains('selected'));
+        };
+        card.addEventListener('click', (e) => { e.stopPropagation(); toggleSelection(); });
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSelection(); }
+        });
+        return card;
+    }
+
+    const contenedor = document.getElementById('gridApoyos');
+    for (let i = 0; i < 12; i++) contenedor.appendChild(crearTarjeta());
+
+    // =========================================================
+    // MENÚ DE CAPAS (Con selección predeterminada y cambio de capa)
+    // =========================================================
+    const capas = [
+      { nombre: 'Ortofoto', img: 'Img-layer-1-ortofoto.png' },
+      { nombre: 'OSM', img: 'Img-layer-2-openstreetmap.png' },
+      { nombre: 'SigCom', img: 'Img-layer-3-sigcom-map.png' },
+      { nombre: 'Más', img: 'Img-layers-plus.png' }
+    ];
+
+    function crearLayerTarjeta(nombre, imgSrc) {
+      const card = document.createElement('div');
+      card.classList.add('layer-card');
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-pressed', 'false');
+      card.innerHTML = `
+        <div class="layer-card-image" aria-hidden="true"><img src="${imgSrc}" alt=""></div>
+        <div class="layer-card-label">${nombre}</div>
+      `;
+      
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Deseleccionar todas las tarjetas
+        document.querySelectorAll('.layer-card').forEach(c => {
+          c.classList.remove('selected');
+          c.setAttribute('aria-pressed', 'false');
+        });
+        // Seleccionar la actual
+        card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
+
+        // Cambiar capa según la opción
+        if (nombre === 'Ortofoto') {
+          // Activar satelital
+          map.removeLayer(osmLayer);
+          map.removeLayer(positronLayer);
+          map.addLayer(satelliteLayer);
+        } else if (nombre === 'SigCom') {
+          // Activar Positrón
+          map.removeLayer(osmLayer);
+          map.removeLayer(satelliteLayer);
+          map.addLayer(positronLayer);
+        } else {
+          // Para OSM o Más, volver a la capa de calles estándar
+          map.removeLayer(satelliteLayer);
+          map.removeLayer(positronLayer);
+          map.addLayer(osmLayer);
+        }
+      });
+      
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { 
+          e.preventDefault(); 
+          card.click(); 
+        }
+      });
+      
+      return card;
+    }
+
+    const contenedorCapas = document.getElementById('gridCapas');
+    capas.forEach(capa => {
+      const tarjeta = crearLayerTarjeta(capa.nombre, capa.img);
+      // Marcar OSM como seleccionada por defecto
+      if (capa.nombre === 'OSM') {
+        tarjeta.classList.add('selected');
+        tarjeta.setAttribute('aria-pressed', 'true');
+      }
+      contenedorCapas.appendChild(tarjeta);
+    });
+
+    const layerGroup = document.getElementById('layerGroup');
+    const layerPanelContainer = document.getElementById('layerPanelContainer');
+    const collapsedLayer = document.getElementById('collapsedLayer');
+    let layerTimeoutId = null;
+
+    function showLayerPanel() {
+      clearTimeout(layerTimeoutId);
+      layerPanelContainer.classList.add('visible');
+      collapsedLayer.classList.add('selected');
+      collapsedLayer.setAttribute('aria-expanded', 'true');
+    }
+    function hideLayerPanel() {
+      layerTimeoutId = setTimeout(() => {
+        layerPanelContainer.classList.remove('visible');
+        collapsedLayer.classList.remove('selected');
+        collapsedLayer.setAttribute('aria-expanded', 'false');
+      }, 100);
+    }
+
+    layerGroup.addEventListener('mouseenter', showLayerPanel);
+    layerGroup.addEventListener('mouseleave', hideLayerPanel);
+    collapsedLayer.addEventListener('mouseenter', () => clearTimeout(layerTimeoutId));
+    layerPanelContainer.addEventListener('mouseenter', () => clearTimeout(layerTimeoutId));
+    collapsedLayer.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        layerPanelContainer.classList.contains('visible') ? hideLayerPanel() : showLayerPanel();
+      }
+    });
+
+    // =========================================================
+    // PANEL DE DIMENSIONAMIENTO (Componente independiente)
+    // =========================================================
+    (() => {
+      // Datos
+      const data = [
+        { label: 'Item', value: '6' },
+        { label: 'Item', value: '8' },
+        { label: 'Item', value: '450' },
+        { label: 'Item', value: '16' },
+        { label: 'Item', value: '1650' },
+        { label: 'Clientes', value: '3200' },
+        { label: 'Item', value: '16200' },
+        { label: 'Item', value: '4400' }
+      ];
+      const grid = document.getElementById('dimension-grid');
+      data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'dimension-item';
+        div.innerHTML = `<span class="label">${item.label}</span><span class="value">${item.value}</span>`;
+        grid.appendChild(div);
+      });
+
+      // Elementos
+      const wrapper = document.getElementById('dimension-wrapper');
+      const badge = document.getElementById('dimension-badge');
+      const panel = document.getElementById('dimension-panel');
+      const closeBtn = document.getElementById('dimension-close-btn');
+      const dragHandle = document.getElementById('dimension-drag-handle');
+
+      let expanded = false;
+
+      // Función para resetear la posición a la esquina inferior izquierda
+      const resetPosition = () => {
+        wrapper.style.bottom = '20px';
+        wrapper.style.left = '20px';
+        wrapper.style.top = 'auto';
+        wrapper.style.right = 'auto';
+        wrapper.style.transition = 'bottom 0.3s ease, left 0.3s ease';
+      };
+
+      const expand = () => {
+        resetPosition();
+        expanded = true;
+        badge.classList.add('hidden');
+        panel.classList.add('visible');
+        wrapper.style.cursor = 'default';
+      };
+
+      const compress = () => {
+        expanded = false;
+        badge.classList.remove('hidden');
+        panel.classList.remove('visible');
+        wrapper.style.cursor = 'grab';
+        resetPosition();
+      };
+
+      badge.addEventListener('click', expand);
+      closeBtn.addEventListener('click', compress);
+
+      // Arrastre mejorado: sin salto al hacer clic
+      let dragging = false;
+      let startX, startY;
+      let startRect = null; // posición inicial en viewport
+      let hasMoved = false;
+
+      const onStart = (e) => {
+        if (!expanded) return;
+        const target = e.target;
+        if (!dragHandle.contains(target) && !target.closest('.header')) return;
+        if (target.closest('.close-btn')) return;
+
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const rect = wrapper.getBoundingClientRect();
+        startRect = { top: rect.top, left: rect.left };
+        startX = touch.clientX;
+        startY = touch.clientY;
+        hasMoved = false;
+        // No cambiamos estilos todavía para evitar salto
+      };
+
+      const onMove = (e) => {
+        if (!expanded || !startRect) return;
+        const touch = e.touches ? e.touches[0] : e;
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        // Si la distancia es pequeña, no hacemos nada (evita el salto)
+        if (Math.abs(dx) < 3 && Math.abs(dy) < 3 && !hasMoved) {
+          return;
+        }
+
+        if (!hasMoved) {
+          // Primer movimiento significativo: activamos el arrastre y convertimos a top/left
+          hasMoved = true;
+          dragging = true;
+          wrapper.style.top = startRect.top + 'px';
+          wrapper.style.left = startRect.left + 'px';
+          wrapper.style.bottom = 'auto';
+          wrapper.style.right = 'auto';
+          wrapper.style.transition = 'none';
+          wrapper.style.cursor = 'grabbing';
+        }
+
+        // Actualizar posición
+        const currentTop = parseFloat(wrapper.style.top) || 0;
+        const currentLeft = parseFloat(wrapper.style.left) || 0;
+        wrapper.style.top = (currentTop + dy) + 'px';
+        wrapper.style.left = (currentLeft + dx) + 'px';
+        startX = touch.clientX;
+        startY = touch.clientY;
+      };
+
+      const onEnd = () => {
+        if (dragging) {
+          dragging = false;
+          wrapper.style.cursor = 'default';
+          wrapper.style.transition = '';
+        }
+        startRect = null;
+        hasMoved = false;
+      };
+
+      // Eventos para el dragHandle y el header
+      const dragTargets = [dragHandle];
+      dragTargets.forEach(el => {
+        el.addEventListener('mousedown', onStart);
+        el.addEventListener('touchstart', onStart, { passive: false });
+      });
+      const header = document.querySelector('.dimension-panel .header');
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.close-btn')) return;
+        onStart(e);
+      });
+      header.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.close-btn')) return;
+        onStart(e);
+      }, { passive: false });
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('mouseup', onEnd);
+      document.addEventListener('touchend', onEnd);
+
+      // Iniciar comprimido
+      compress();
+    })();
+  </script>
+</body>
+</html>

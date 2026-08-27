@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Dimensionamiento</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    :root {
+      --bg: radial-gradient(circle at 30% 40%, #e8edf5, #c8d4e0);
+      --glass-bg: rgba(255, 255, 255, 0.3);
+      --glass-inset-light: rgba(255, 255, 255, 0.8);
+      --glass-inset-dark: rgba(0, 0, 0, 0.08);
+      --glass-border: linear-gradient(258.9deg, rgba(255, 255, 255, 0.3) 0%, #fff 50%, rgba(255, 255, 255, 0.3) 97.6%);
+      --card-bg: rgba(255, 255, 255, 0.6);
+      --text: #000;
+      --shadow-dark: rgba(0, 0, 0, 0.1);
+      --shadow-light: rgba(255, 255, 255, 0.9);
+      --badge-bg: rgba(255, 255, 255, 0.8);
+    }
+    body.dark-mode {
+      --bg: radial-gradient(circle at 30% 40%, #2b2e3b, #17181c);
+      --glass-bg: rgba(30, 32, 40, 0.4);
+      --glass-inset-light: rgba(255, 255, 255, 0.1);
+      --glass-inset-dark: rgba(0, 0, 0, 0.6);
+      --glass-border: linear-gradient(258.9deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0.1) 97.6%);
+      --card-bg: rgba(50, 54, 70, 0.6);
+      --text: #fff;
+      --shadow-dark: rgba(0, 0, 0, 0.5);
+      --shadow-light: rgba(255, 255, 255, 0.05);
+      --badge-bg: rgba(50, 54, 70, 0.8);
+    }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: 'Roboto', system-ui, sans-serif;
+      transition: background 0.4s;
+    }
+
+    /* Switch tema – fijo abajo derecha */
+    .theme-switch-wrapper {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #555;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+    body.dark-mode .theme-switch-wrapper {
+      color: #bbb;
+    }
+    .theme-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+    .theme-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: #ccc;
+      border-radius: 34px;
+      transition: 0.4s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.4s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    input:checked + .slider {
+      background: #004A9D;
+    }
+    input:checked + .slider::before {
+      transform: translateX(24px);
+    }
+
+    /* Panel dimensionamiento – fijo abajo izquierda */
+    .dimension-wrapper {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 500;
+      cursor: grab;
+      touch-action: none;
+      transition: bottom 0.3s ease, left 0.3s ease;
+    }
+    .dimension-wrapper:active {
+      cursor: grabbing;
+    }
+    .dimension-wrapper .inner {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+    }
+
+    /* Badge y panel comparten la misma esquina inferior izquierda */
+    .dimension-badge,
+    .dimension-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      transform-origin: bottom left;
+    }
+
+    .dimension-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      border-radius: 40px;
+      background: var(--badge-bg);
+      backdrop-filter: blur(12px);
+      box-shadow: 4px 4px 12px var(--shadow-dark), -4px -4px 12px var(--shadow-light);
+      border: 2px solid transparent;
+      cursor: grab;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.4s;
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .dimension-badge:hover {
+      border-color: #0892F4;
+      box-shadow: 6px 6px 16px var(--shadow-dark), -6px -6px 16px var(--shadow-light);
+    }
+    .dimension-badge:active {
+      cursor: grabbing;
+    }
+    .dimension-badge.hidden {
+      display: none;
+    }
+
+    .dimension-panel {
+      width: 400px;
+      border-radius: 30px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      box-shadow: inset 0 2px 4px var(--glass-inset-light), inset 0 -2px 4px var(--glass-inset-dark),
+                  4px 4px 12px var(--shadow-dark), -4px -4px 12px var(--shadow-light);
+      padding: 20px 24px 24px;
+      border: 2px solid transparent;
+      transition: max-height 0.4s ease, opacity 0.4s ease, box-shadow 0.3s ease;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+    .dimension-panel::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 30px;
+      padding: 1px;
+      background: var(--glass-border);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .dimension-panel.visible {
+      max-height: 800px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .dimension-panel .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+    .dimension-panel .drag-icon {
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 2px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .dimension-panel .drag-icon:hover {
+      background: rgba(128, 128, 128, 0.15);
+    }
+    .dimension-panel .drag-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--text);
+      opacity: 0.6;
+    }
+    .dimension-panel .title-group {
+      flex: 1;
+    }
+    .dimension-panel .title-group h2 {
+      font-size: 20px;
+      font-weight: 500;
+    }
+    .dimension-panel .title-group .subtitle {
+      font-size: 14px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+    .dimension-panel .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 8px;
+      line-height: 1;
+      margin-left: auto;
+      transition: background 0.2s;
+    }
+    .dimension-panel .close-btn:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    body.dark-mode .dimension-panel .close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .dimension-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 24px;
+    }
+    .dimension-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+      color: var(--text);
+      font-size: 14px;
+    }
+    .dimension-item .label {
+      opacity: 0.8;
+    }
+    .dimension-item .value {
+      font-weight: 500;
+    }
+    .dimension-item:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Switch de tema -->
+  <div class="theme-switch-wrapper">
+    <span>Light</span>
+    <label class="theme-switch">
+      <input type="checkbox" id="theme-toggle" />
+      <span class="slider"></span>
+    </label>
+    <span>Dark</span>
+  </div>
+
+  <!-- Panel dimensionamiento -->
+  <div class="dimension-wrapper" id="wrapper">
+    <div class="inner">
+      <div class="dimension-badge" id="badge">Dimensionamiento</div>
+      <div class="dimension-panel" id="panel">
+        <div class="header">
+          <div class="drag-icon" id="dragHandle">
+            <svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg>
+          </div>
+          <div class="title-group">
+            <h2>Dimensionamiento</h2>
+            <div class="subtitle">Barrio 1</div>
+          </div>
+          <button class="close-btn" id="closeBtn">✕</button>
+        </div>
+        <div class="dimension-grid" id="grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // Tema
+      const toggle = document.getElementById('theme-toggle');
+      toggle.addEventListener('change', () => document.body.classList.toggle('dark-mode', toggle.checked));
+
+      // Datos
+      const data = [
+        { label: 'Item', value: '6' },
+        { label: 'Item', value: '8' },
+        { label: 'Item', value: '450' },
+        { label: 'Item', value: '16' },
+        { label: 'Item', value: '1650' },
+        { label: 'Clientes', value: '3200' },
+        { label: 'Item', value: '16200' },
+        { label: 'Item', value: '4400' }
+      ];
+      const grid = document.getElementById('grid');
+      data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'dimension-item';
+        div.innerHTML = `<span class="label">${item.label}</span><span class="value">${item.value}</span>`;
+        grid.appendChild(div);
+      });
+
+      // Elementos
+      const wrapper = document.getElementById('wrapper');
+      const badge = document.getElementById('badge');
+      const panel = document.getElementById('panel');
+      const closeBtn = document.getElementById('closeBtn');
+      const dragHandle = document.getElementById('dragHandle');
+
+      let expanded = false;
+
+      // Función para resetear la posición a la esquina inferior izquierda
+      const resetPosition = () => {
+        wrapper.style.bottom = '20px';
+        wrapper.style.left = '20px';
+        wrapper.style.top = 'auto';
+        wrapper.style.right = 'auto';
+        wrapper.style.transition = 'bottom 0.3s ease, left 0.3s ease';
+      };
+
+      const expand = () => {
+        expanded = true;
+        badge.classList.add('hidden');
+        panel.classList.add('visible');
+        wrapper.style.cursor = 'default';
+      };
+
+      const compress = () => {
+        expanded = false;
+        badge.classList.remove('hidden');
+        panel.classList.remove('visible');
+        wrapper.style.cursor = 'grab';
+        resetPosition(); // Vuelve a la esquina inferior izquierda
+      };
+
+      badge.addEventListener('click', expand);
+      closeBtn.addEventListener('click', compress);
+
+      // Arrastre
+      let dragging = false;
+      let startX, startY, offX, offY;
+
+      const onStart = (e) => {
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const rect = wrapper.getBoundingClientRect();
+        offX = touch.clientX - rect.left;
+        offY = touch.clientY - rect.top;
+
+        if (expanded) {
+          const target = e.target;
+          if (!dragHandle.contains(target) && !target.closest('.header')) return;
+        }
+
+        dragging = true;
+        wrapper.style.cursor = 'grabbing';
+        wrapper.style.transition = 'none';
+        // Convertir de left/bottom a top/left para arrastre libre
+        const style = getComputedStyle(wrapper);
+        const bottom = parseFloat(style.bottom);
+        const left = parseFloat(style.left);
+        if (!isNaN(bottom) && !isNaN(left)) {
+          const winH = window.innerHeight;
+          wrapper.style.bottom = 'auto';
+          wrapper.style.left = left + 'px';
+          wrapper.style.top = (winH - bottom - rect.height) + 'px';
+        }
+        startX = touch.clientX;
+        startY = touch.clientY;
+      };
+
+      const onMove = (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        const rect = wrapper.getBoundingClientRect();
+        wrapper.style.left = (rect.left + dx) + 'px';
+        wrapper.style.top = (rect.top + dy) + 'px';
+        startX = touch.clientX;
+        startY = touch.clientY;
+      };
+
+      const onEnd = () => {
+        if (dragging) {
+          dragging = false;
+          wrapper.style.cursor = expanded ? 'default' : 'grab';
+          wrapper.style.transition = '';
+        }
+      };
+
+      // Agregar listeners a los elementos que inician arrastre
+      const dragTargets = [badge, dragHandle];
+      dragTargets.forEach(el => {
+        el.addEventListener('mousedown', onStart);
+        el.addEventListener('touchstart', onStart, { passive: false });
+      });
+      const header = document.querySelector('.header');
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.close-btn')) return;
+        onStart(e);
+      });
+      header.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.close-btn')) return;
+        onStart(e);
+      }, { passive: false });
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('mouseup', onEnd);
+      document.addEventListener('touchend', onEnd);
+
+      // Iniciar comprimido
+      compress();
+    })();
+  </script>
+</body>
+</html>
